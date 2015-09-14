@@ -11,7 +11,6 @@ import (
     "strings"
     "log"
     "io/ioutil"
-	"net"
 	"net/http"
     "os"
     "time"
