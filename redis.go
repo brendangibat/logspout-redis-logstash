@@ -163,7 +163,7 @@ func (a *RedisAdapter) Stream(logstream chan *router.Message) {
     options := UnmarshalOptions(getopt("OPTIONS", ""))
 
     for m := range logstream {
-        msg := createLogstashMessage(m, a.docker_host, a.use_v0, options)
+        msg := createLogstashMessage(m, a.docker_host, a.use_v0, options, instance_id)
         js, err := json.Marshal(msg)
         if err != nil {
             if !mute {
@@ -232,7 +232,7 @@ func splitImage(image string) (string, string) {
     return image, ""
 }
 
-func createLogstashMessage(m *router.Message, docker_host string, use_v0 bool, options map[string]string) interface{} {
+func createLogstashMessage(m *router.Message, docker_host string, use_v0 bool, options map[string]string, instance_id string) interface{} {
     image_name, image_tag := splitImage(m.Container.Config.Image)
     cid := m.Container.ID[0:12]
     name := m.Container.Name[1:]
@@ -256,6 +256,8 @@ func createLogstashMessage(m *router.Message, docker_host string, use_v0 bool, o
             Message:    m.Data,
             Timestamp:  timestamp,
             Sourcehost: m.Container.Config.Hostname,
+            Options:    container_options,
+            InstanceId: instance_id,
             Fields:     LogstashFields{
                 Docker: DockerFields{
                     CID:        cid,
@@ -273,6 +275,8 @@ func createLogstashMessage(m *router.Message, docker_host string, use_v0 bool, o
         Message:    m.Data,
         Timestamp:  timestamp,
         Sourcehost: m.Container.Config.Hostname,
+        Options:    container_options,
+        InstanceId: instance_id,
         Fields:     DockerFields{
             CID:        cid,
             Name:       name,
