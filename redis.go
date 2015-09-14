@@ -43,6 +43,8 @@ type LogstashMessageV0 struct {
     Timestamp   string            `json:"@timestamp"`
     Sourcehost  string            `json:"@source_host"`
     Message     string            `json:"@message"`
+    Options     map[string]string `json:"options,omitempty"`
+    InstanceId  string            `json:"instance-id,omitempty"`
     Fields      LogstashFields    `json:"@fields"`
 }
 
@@ -50,6 +52,8 @@ type LogstashMessageV1 struct {
     Timestamp   string            `json:"@timestamp"`
     Sourcehost  string            `json:"host"`
     Message     string            `json:"message"`
+    Options     map[string]string `json:"options,omitempty"`
+    InstanceId  string            `json:"instance-id,omitempty"`
     Fields      DockerFields      `json:"docker"`
 }
 
@@ -110,11 +114,51 @@ func NewRedisAdapter(route *router.Route) (router.LogAdapter, error) {
     }, nil
 }
 
+func GetLogspoutOptionsString(env []string) string {
+	if env != nil {
+		for _, value := range env {
+			if strings.HasPrefix(value, "LOGSPOUT_OPTIONS=") {
+				return strings.TrimPrefix(value, "LOGSPOUT_OPTIONS=")
+			}
+		}
+	}
+	return ""
+}
+
+func GetAwsInstanceId() string {
+    resp, err := http.Get("http://169.254.169.254/latest/meta-data/instance-id")
+	instance_id := ""
+	if err == nil {
+		value, err := ioutil.ReadAll(resp.Body)
+		if err == nil {
+			instance_id = string(value)
+		}
+		resp.Body.Close()
+	}
+    return instance_id
+}
+
+func UnmarshalOptions(opt_string string) map[string]string {
+	var options map[string]string
+
+	if opt_string != "" {
+		b := []byte(opt_string)
+
+		json.Unmarshal(b, &options)
+		return options
+	}
+	return nil
+}
+
 func (a *RedisAdapter) Stream(logstream chan *router.Message) {
     conn := a.pool.Get()
     defer conn.Close()
 
     mute := false
+
+    instance_id := GetAwsInstanceId()
+
+    options := UnmarshalOptions(getopt("OPTIONS", ""))
 
     for m := range logstream {
         msg := createLogstashMessage(m, a.docker_host, a.use_v0)
@@ -186,11 +230,24 @@ func splitImage(image string) (string, string) {
     return image, ""
 }
 
-func createLogstashMessage(m *router.Message, docker_host string, use_v0 bool) interface{} {
+func createLogstashMessage(m *router.Message, docker_host string, use_v0 bool, options map[string]string) interface{} {
     image_name, image_tag := splitImage(m.Container.Config.Image)
     cid := m.Container.ID[0:12]
     name := m.Container.Name[1:]
     timestamp := m.Time.Format(time.RFC3339Nano)
+
+    container_options := UnmarshalOptions(GetLogspoutOptionsString(m.Container.Config.Env))
+
+	// We give preference to the containers environment that is sending us the message
+	if container_options == nil {
+		container_options = options
+	} else if options != nil {
+		for k, v := range options {
+			if _, ok := container_options[k]; !ok {
+				container_options[k] = v
+			}
+		}
+	}
 
     if use_v0 {
         return LogstashMessageV0{
