@@ -10,6 +10,9 @@ import (
     "fmt"
     "strings"
     "log"
+    "io/ioutil"
+	"net"
+	"net/http"
     "os"
     "time"
     "encoding/json"
@@ -161,7 +164,7 @@ func (a *RedisAdapter) Stream(logstream chan *router.Message) {
     options := UnmarshalOptions(getopt("OPTIONS", ""))
 
     for m := range logstream {
-        msg := createLogstashMessage(m, a.docker_host, a.use_v0)
+        msg := createLogstashMessage(m, a.docker_host, a.use_v0, options)
         js, err := json.Marshal(msg)
         if err != nil {
             if !mute {
