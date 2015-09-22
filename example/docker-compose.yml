@@ -4,7 +4,7 @@ kibana:
     - elasticsearch
   ports:
     - 5601:5601
-  
+
 elasticsearch:
   image: elasticsearch
   ports:
