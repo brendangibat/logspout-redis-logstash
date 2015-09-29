@@ -260,7 +260,7 @@ func createLogstashMessage(m *router.Message, docker_host string, use_v0 bool, o
             InstanceId: instance_id,
             Fields:     LogstashFields{
                 Docker: DockerFields{
-                    Args:       m.Container.Args,
+                    Args:       strings.Join(m.Container.Args, " "),
                     CID:        cid,
                     Name:       name,
                     Image:      image_name,
