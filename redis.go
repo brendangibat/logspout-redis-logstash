@@ -19,7 +19,6 @@ import (
     "github.com/garyburd/redigo/redis"
 )
 
-
 type RedisAdapter struct {
     route       *router.Route
     pool        *redis.Pool
@@ -29,12 +28,13 @@ type RedisAdapter struct {
 }
 
 type DockerFields struct {
-    Name        string `json:"name"`
-    CID         string `json:"cid"`
-    Image       string `json:"image"`
-    ImageTag    string `json:"image_tag,omitempty"`
-    Source      string `json:"source"`
-    DockerHost  string `json:"docker_host,omitempty"`
+    Name        string      `json:"name"`
+    CID         string      `json:"cid"`
+    Image       string      `json:"image"`
+    ImageTag    string      `json:"image_tag,omitempty"`
+    Source      string      `json:"source"`
+    DockerHost  string      `json:"docker_host,omitempty"`
+    Args        []string    `json:"args,omitempty"`
 }
 
 type LogstashFields struct {
@@ -260,6 +260,7 @@ func createLogstashMessage(m *router.Message, docker_host string, use_v0 bool, o
             InstanceId: instance_id,
             Fields:     LogstashFields{
                 Docker: DockerFields{
+                    Args:       m.Container.Args,
                     CID:        cid,
                     Name:       name,
                     Image:      image_name,
@@ -278,6 +279,7 @@ func createLogstashMessage(m *router.Message, docker_host string, use_v0 bool, o
         Options:    container_options,
         InstanceId: instance_id,
         Fields:     DockerFields{
+            Args:       strings.Join(m.Container.Args, " "),
             CID:        cid,
             Name:       name,
             Image:      image_name,
