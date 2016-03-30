@@ -13,6 +13,7 @@ import (
 	"github.com/gliderlabs/logspout/router"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -213,7 +214,10 @@ func newRedisConnectionPool(server, password string) *redis.Pool {
 		MaxIdle:     3,
 		IdleTimeout: 240 * time.Second,
 		Dial: func() (redis.Conn, error) {
-			c, err := redis.Dial("tcp", server)
+			dialer := &net.Dialer{Timeout: 3 * time.Second}
+			c, err := redis.Dial("tcp",
+				server,
+				redis.DialNetDial(MakeRetryDialer(dialer, 3)))
 			if err != nil {
 				return nil, err
 			}
@@ -229,6 +233,23 @@ func newRedisConnectionPool(server, password string) *redis.Pool {
 			_, err := c.Do("PING")
 			return err
 		},
+	}
+}
+
+func MakeRetryDialer(dialer *net.Dialer, retry int) func(string, string) (net.Conn, error) {
+	return func(network string, address string) (net.Conn, error) {
+		var conn net.Conn
+		var err error
+		for i := 0; i < retry; i++ {
+			conn, err = dialer.Dial(network, address)
+			if err == nil {
+				return conn, err
+			}
+		}
+		if err == nil {
+			err = fmt.Errorf("No connections or errors for retry on hostname %s", address)
+		}
+		return nil, err
 	}
 }
 
