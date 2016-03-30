@@ -82,20 +82,54 @@ The above docker command will send its logs to the test index and be processed a
 This works well in tandem with logstash filters. By passing in custom options on individual containers or for all messages logged by a running logspout container, you can partition your environments logs in to different indexes or ElasticSearch hosts.
 
 ```
+
+input {
+    redis {
+        host => 'some_host.url'
+        key => 'some_key'
+        data_type => 'list'
+        type => 'redis'
+    }
+}
+
+
+filter {
+  if [options][type] {
+    mutate {
+      replace => {
+        "type" => "%{[options][type]}"
+      }
+    }
+  }
+  if [data][message][type] {
+    mutate {
+      replace => {
+        "type" => "%{[data][message][type]}"
+      }
+    }
+  }
+  if [options][codec] == "json" {
+    json {
+      source => "message"
+    }
+  }
+}
+
 output {
   if [options][_logging_index] {
       amazon_es {
-          hosts => ['{{ .Env.ELASTICSEARCH_HOST }}']
-          region => '{{ .Env.AWS_REGION }}'
+          hosts => ['es_host.url']
+          region => 'aws_region'
           index => '%{[options][_logging_index]}-%{+YYYY.MM.dd}'
       }
   } else {
       amazon_es {
-          hosts => ['{{ .Env.ELASTICSEARCH_HOST }}']
-          region => '{{ .Env.AWS_REGION }}'
-          index => '{{ default .Env.ELASTICSEARCH_OUTPUT_INDEX "logging-%{+YYYY.MM.dd}" }}'
+          hosts => ['es_host.url']
+          region => 'aws_region'
+          index => 'logging-%{+YYYY.MM.dd}'
       }
   }
+}
 ```
 
 ## ELK integration
