@@ -3,6 +3,9 @@
 
 See the example below for more information.
 
+#### This Project is specific to AWS
+
+This project pulls extra metadata from the AWS metadata service.
 
 ## Docker image available
 
